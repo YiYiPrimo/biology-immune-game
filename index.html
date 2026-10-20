@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>人体免疫三道防线 · 选词填空对战</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    background: #eef2f7; color: #1f2937; min-height: 100vh;
+  }
+  .topbar {
+    position: sticky; top: 0; z-index: 100; display: flex; align-items: center;
+    gap: 14px; flex-wrap: wrap; padding: 10px 18px; background: #fff;
+    box-shadow: 0 2px 10px rgba(15,23,42,.08);
+  }
+  .topbar h1 { font-size: 18px; margin: 0; white-space: nowrap; }
+  .hint { font-size: 12px; color: #64748b; flex: 1 1 260px; line-height: 1.5; }
+  .top-actions { display: flex; align-items: center; gap: 10px; }
+  .btn-start {
+    border: none; background: #2563eb; color: #fff; padding: 9px 20px;
+    border-radius: 9px; font-size: 14px; font-weight: 700; cursor: pointer; transition: .15s;
+  }
+  .btn-start:hover { background: #1d4ed8; transform: translateY(-1px); }
+  .btn-start:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+  .btn-ghost {
+    border: 1px solid #cbd5e1; background: #fff; color: #475569; padding: 9px 16px;
+    border-radius: 9px; font-size: 14px; cursor: pointer; transition: .15s;
+  }
+  .btn-ghost:hover { border-color: #94a3b8; background: #f8fafc; }
+  #msg { font-size: 14px; font-weight: 700; color: #2563eb; min-width: 170px; text-align: right; }
+
+  .arena { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 14px; align-items: start; }
+  @media (max-width: 1020px) { .arena { grid-template-columns: 1fr; } }
+
+  .board {
+    background: #fff; border-radius: 14px; padding: 12px 12px 14px;
+    border-top: 6px solid #2563eb; box-shadow: 0 4px 16px rgba(15,23,42,.08);
+    transition: box-shadow .25s, border-color .25s;
+  }
+  .board[data-player="B"] { border-top-color: #ea580c; }
+  .board.waiting { opacity: .45; pointer-events: none; filter: blur(1.2px); }
+  .board.winner { box-shadow: 0 0 0 3px #facc15, 0 8px 26px rgba(250,204,21,.45); }
+
+  .board-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .name { font-size: 16px; font-weight: 800; }
+  .board[data-player="A"] .name { color: #2563eb; }
+  .board[data-player="B"] .name { color: #ea580c; }
+  .timer {
+    font-variant-numeric: tabular-nums; font-size: 21px; font-weight: 800;
+    color: #334155; background: #f1f5f9; padding: 2px 14px; border-radius: 9px;
+  }
+  .timer.stopped { color: #15803d; background: #dcfce7; }
+
+  .pool {
+    display: flex; flex-wrap: wrap; gap: 6px; padding: 9px;
+    margin-bottom: 10px; background: #f1f5f9; border-radius: 11px; min-height: 62px;
+  }
+  .word {
+    border: 1px solid #cbd5e1; background: #fff; color: #334155;
+    border-radius: 999px; padding: 4px 11px; font-size: 12.5px; cursor: pointer; transition: .15s;
+  }
+  .word:hover { border-color: #2563eb; color: #2563eb; transform: translateY(-1px); }
+  .word.selected { background: #2563eb; color: #fff; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.22); }
+  .board[data-player="B"] .word.selected { background: #ea580c; border-color: #ea580c; box-shadow: 0 0 0 3px rgba(234,88,12,.22); }
+
+  .q { display: flex; gap: 10px; padding: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 11px; margin-bottom: 8px; }
+  .pic {
+    width: 150px; height: 108px; flex: none; border-radius: 9px; overflow: hidden;
+    background: #0f172a; position: relative;
+  }
+  .pic svg { display: block; width: 100%; height: 100%; }
+
+  .slots { flex: 1; display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+  .slot-row { display: flex; align-items: flex-start; gap: 5px; }
+  .slot-row .label { flex: none; width: 86px; line-height: 30px; font-size: 13px; font-weight: 700; color: #475569; }
+  .slot {
+    flex: 1; min-height: 30px; border: 2px dashed #cbd5e1; border-radius: 9px; padding: 2px 5px;
+    display: flex; flex-wrap: wrap; gap: 4px; background: #fff; cursor: pointer; align-content: flex-start;
+  }
+  .slot:hover { border-color: #94a3b8; background: #f8fafc; }
+  .slot.ok { border-color: #22c55e; border-style: solid; background: #f0fdf4; }
+  .slot.bad { border-color: #ef4444; border-style: solid; background: #fef2f2; animation: shake .3s; }
+  @keyframes shake { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+
+  .chip {
+    background: #dbeafe; color: #1e40af; border-radius: 7px; padding: 3px 8px;
+    font-size: 12px; font-weight: 600; cursor: pointer; max-width: 100%; word-break: break-word;
+  }
+  .chip:hover { background: #bfdbfe; }
+  .board[data-player="B"] .chip { background: #ffedd5; color: #9a3412; }
+  .board[data-player="B"] .chip:hover { background: #fed7aa; }
+
+  .board-foot { display: flex; align-items: center; gap: 12px; margin-top: 6px; padding-left: 2px; }
+  .submit {
+    border: none; background: #2563eb; color: #fff; padding: 9px 22px;
+    border-radius: 9px; font-size: 14px; font-weight: 700; cursor: pointer; transition: .15s;
+  }
+  .submit:hover { filter: brightness(1.08); }
+  .submit:disabled { opacity: .45; cursor: default; }
+  .board[data-player="B"] .submit { background: #ea580c; }
+  .result { font-size: 13px; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>人体免疫三道防线 · 选词填空对战</h1>
+  <div class="hint">提示：点击卡片选中，再点击横线放入；点击已放入的卡片可取出。左右两侧独立作答、独立计时，先做完且全对者获胜。</div>
+  <div class="top-actions">
+    <button class="btn-start" id="startBtn">开始比赛</button>
+    <button class="btn-ghost" id="resetBtn">重新开始</button>
+    <div id="msg">点击「开始比赛」</div>
+  </div>
+</div>
+
+<div class="arena">
+  <section class="board" id="boardA" data-player="A">
+    <div class="board-head"><span class="name">🟦 选手 A</span><span class="timer">0.0s</span></div>
+    <div class="pool"></div>
+    <div class="questions"></div>
+    <div class="board-foot">
+      <button class="submit" type="button">提交答案</button>
+      <span class="result"></span>
+    </div>
+  </section>
+
+  <section class="board" id="boardB" data-player="B">
+    <div class="board-head"><span class="name">🟧 选手 B</span><span class="timer">0.0s</span></div>
+    <div class="pool"></div>
+    <div class="questions"></div>
+    <div class="board-foot">
+      <button class="submit" type="button">提交答案</button>
+      <span class="result"></span>
+    </div>
+  </section>
+</div>
+
+<script>
+/* =========================================================
+   内联 SVG 图案（打开即显示，稳定可靠）
+   ========================================================= */
+const SVG1 = `
+<svg viewBox="0 0 200 140" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="bg1" cx="50%" cy="45%" r="75%">
+      <stop offset="0%" stop-color="#1e3a8a"/><stop offset="100%" stop-color="#050a1a"/>
+    </radialGradient>
+    <radialGradient id="bodyGrad1" cx="50%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#7dd3fc" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.2"/>
+    </radialGradient>
+    <radialGradient id="lungGrad1" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#f0abfc"/><stop offset="100%" stop-color="#a855f7"/>
+    </radialGradient>
+    <g id="virus1">
+      <circle r="10" fill="#38bdf8" opacity="0.85"/>
+      <circle r="5" fill="#bae6fd" opacity="0.6"/>
+      <g stroke="#7dd3fc" stroke-width="2" stroke-linecap="round">
+        <line y1="-10" y2="-17"/><line y1="10" y2="17"/>
+        <line x1="-10" x2="-17"/><line x1="10" x2="17"/>
+        <line x1="-7" y1="-7" x2="-12" y2="-12"/><line x1="7" y1="7" x2="12" y2="12"/>
+        <line x1="-7" y1="7" x2="-12" y2="12"/><line x1="7" y1="-7" x2="12" y2="-12"/>
+      </g>
+      <circle r="2" cx="-3" cy="-3" fill="#e0f2fe" opacity="0.7"/>
+      <circle r="1.5" cx="4" cy="2" fill="#e0f2fe" opacity="0.5"/>
+    </g>
+  </defs>
+  <rect width="200" height="140" fill="url(#bg1)"/>
+  <ellipse cx="100" cy="34" rx="16" ry="18" fill="#93c5fd" opacity="0.35"/>
+  <path d="M84 52 Q100 46 116 52 L128 140 L72 140 Z" fill="url(#bodyGrad1)"/>
+  <path d="M100 48 C98 60 96 70 94 80" stroke="#e9d5ff" stroke-width="5" fill="none" opacity="0.8" stroke-linecap="round"/>
+  <path d="M100 48 C102 60 104 70 106 80" stroke="#e9d5ff" stroke-width="5" fill="none" opacity="0.8" stroke-linecap="round"/>
+  <path d="M94 72 C78 62 62 74 62 92 C62 108 74 118 84 114 C92 111 94 100 94 88 Z" fill="url(#lungGrad1)" opacity="0.85"/>
+  <path d="M106 72 C122 62 138 74 138 92 C138 108 126 118 116 114 C108 111 106 100 106 88 Z" fill="url(#lungGrad1)" opacity="0.85"/>
+  <g transform="translate(24,28)"><use href="#virus1"/></g>
+  <g transform="translate(172,26) scale(0.75)"><use href="#virus1"/></g>
+  <g transform="translate(38,110) scale(0.85)"><use href="#virus1"/></g>
+  <g transform="translate(176,116) scale(0.65)"><use href="#virus1"/></g>
+  <g transform="translate(150,80) scale(0.5)"><use href="#virus1"/></g>
+  <g transform="translate(14,74) scale(0.55)"><use href="#virus1"/></g>
+</svg>`;
+
+const SVG2 = `
+<svg viewBox="0 0 200 140" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="bg2" cx="55%" cy="40%" r="80%">
+      <stop offset="0%" stop-color="#f1f5f9"/><stop offset="100%" stop-color="#cbd5e1"/>
+    </radialGradient>
+    <linearGradient id="vesselGrad2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fca5a5"/><stop offset="100%" stop-color="#ef4444"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="140" fill="url(#bg2)"/>
+  <path d="M100 4 Q122 4 122 30 L132 140 L68 140 L78 30 Q78 4 100 4 Z" fill="#e2e8f0" opacity="0.9"/>
+  <path d="M100 4 Q122 4 122 30 L132 140 L68 140 L78 30 Q78 4 100 4 Z" fill="none" stroke="#94a3b8" stroke-width="1.5"/>
+  <g fill="none" stroke-linecap="round">
+    <path d="M100 36 L100 10" stroke="#ef4444" stroke-width="7"/>
+    <path d="M92 32 L66 14" stroke="#3b82f6" stroke-width="5"/>
+    <path d="M108 32 L134 14" stroke="#ef4444" stroke-width="5"/>
+    <path d="M96 86 L78 140" stroke="#ef4444" stroke-width="8"/>
+    <path d="M104 86 L124 140" stroke="#3b82f6" stroke-width="8"/>
+    <path d="M90 78 L72 140" stroke="#3b82f6" stroke-width="4" opacity="0.7"/>
+    <path d="M110 78 L128 140" stroke="#ef4444" stroke-width="4" opacity="0.7"/>
+  </g>
+  <path d="M100 42 c-9-13 -28-8 -28 9 c0 13 16 22 28 33 c12-11 28-20 28-33 c0-17-19-22-28-9 z" fill="#dc2626"/>
+  <path d="M100 42 c-9-13 -28-8 -28 9 c0 13 16 22 28 33" fill="none" stroke="#fbbf24" stroke-width="2.5"/>
+  <path d="M100 42 c9-13 28-8 28 9 c0 13 -16 22 -28 33" fill="none" stroke="#fbbf24" stroke-width="2.5"/>
+  <path d="M100 42 c-9-13 -28-8 -28 9" fill="none" stroke="#fbbf24" stroke-width="2.5"/>
+  <circle cx="52" cy="98" r="52" fill="#fff" opacity="0.95" stroke="#f87171" stroke-width="2"/>
+  <path d="M-4 98 Q52 74 108 98" stroke="url(#vesselGrad2)" stroke-width="34" fill="none" stroke-linecap="round"/>
+  <ellipse cx="20" cy="88" rx="9" ry="5" fill="#dc2626" opacity="0.9"/>
+  <ellipse cx="42" cy="84" rx="8" ry="4.5" fill="#dc2626" opacity="0.9"/>
+  <ellipse cx="64" cy="88" rx="8" ry="4.5" fill="#dc2626" opacity="0.9"/>
+  <ellipse cx="86" cy="92" rx="8" ry="4.5" fill="#dc2626" opacity="0.9"/>
+  <ellipse cx="30" cy="106" rx="8" ry="4.5" fill="#dc2626" opacity="0.9"/>
+  <ellipse cx="54" cy="108" rx="8" ry="4.5" fill="#dc2626" opacity="0.9"/>
+  <ellipse cx="78" cy="104" rx="8" ry="4.5" fill="#dc2626" opacity="0.9"/>
+  <ellipse cx="12" cy="102" rx="7" ry="4" fill="#b91c1c" opacity="0.8"/>
+  <ellipse cx="96" cy="98" rx="7" ry="4" fill="#b91c1c" opacity="0.8"/>
+</svg>`;
+
+const SVG3 = `
+<svg viewBox="0 0 200 140" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="bg3top" cx="50%" cy="40%" r="80%">
+      <stop offset="0%" stop-color="#fef9f3"/><stop offset="100%" stop-color="#f5e6d3"/>
+    </radialGradient>
+    <radialGradient id="bg3bottom" cx="50%" cy="50%" r="80%">
+      <stop offset="0%" stop-color="#991b1b"/><stop offset="100%" stop-color="#450a0a"/>
+    </radialGradient>
+    <g id="virus3">
+      <circle r="9" fill="#94a3b8"/>
+      <circle r="5.5" fill="#cbd5e1" opacity="0.7"/>
+      <g stroke="#94a3b8" stroke-width="2" stroke-linecap="round">
+        <line y1="-9" y2="-14"/><line y1="9" y2="14"/>
+        <line x1="-9" x2="-14"/><line x1="9" x2="14"/>
+        <line x1="-6.4" y1="-6.4" x2="-10" y2="-10"/><line x1="6.4" y1="6.4" x2="10" y2="10"/>
+        <line x1="-6.4" y1="6.4" x2="-10" y2="10"/><line x1="6.4" y1="-6.4" x2="10" y2="-10"/>
+      </g>
+    </g>
+  </defs>
+  <rect width="200" height="68" fill="url(#bg3top)"/>
+  <ellipse cx="100" cy="20" rx="12" ry="14" fill="#fcd34d" opacity="0.3" stroke="#d97706" stroke-width="0.8"/>
+  <path d="M88 32 Q100 28 112 32 L118 68 L82 68 Z" fill="#fcd34d" opacity="0.15" stroke="#d97706" stroke-width="0.8"/>
+  <path d="M88 36 L60 50 L58 62" fill="none" stroke="#d97706" stroke-width="1.2" opacity="0.6"/>
+  <path d="M112 36 L140 50 L142 62" fill="none" stroke="#d97706" stroke-width="1.2" opacity="0.6"/>
+  <g fill="none" stroke="#fbbf24" stroke-width="1" opacity="0.6">
+    <path d="M100 34 L100 62"/><path d="M94 40 L86 58"/><path d="M106 40 L114 58"/>
+  </g>
+  <ellipse cx="100" cy="38" rx="5" ry="6" fill="#ef4444" opacity="0.8"/>
+  <circle cx="90" cy="46" r="3" fill="#3b82f6" opacity="0.8"/>
+  <circle cx="110" cy="46" r="3" fill="#3b82f6" opacity="0.8"/>
+  <ellipse cx="112" cy="54" rx="5" ry="4" fill="#7c3aed" opacity="0.8"/>
+  <circle cx="96" cy="30" r="2.5" fill="#f97316" opacity="0.8"/>
+  <circle cx="104" cy="30" r="2.5" fill="#f97316" opacity="0.8"/>
+  <text x="128" y="30" font-size="5" fill="#64748b">扁桃体</text>
+  <text x="128" y="38" font-size="5" fill="#64748b">胸腺</text>
+  <text x="128" y="48" font-size="5" fill="#64748b">淋巴结</text>
+  <text x="128" y="56" font-size="5" fill="#64748b">脾脏</text>
+  <rect y="68" width="200" height="72" fill="url(#bg3bottom)"/>
+  <g fill="#b91c1c" opacity="0.4">
+    <circle cx="20" cy="90" r="18"/><circle cx="80" cy="82" r="22"/>
+    <circle cx="150" cy="95" r="20"/><circle cx="40" cy="120" r="18"/>
+    <circle cx="120" cy="125" r="20"/>
+  </g>
+  <g fill="#fca5a5" opacity="0.25">
+    <circle cx="50" cy="100" r="12"/><circle cx="110" cy="90" r="10"/>
+    <circle cx="170" cy="110" r="12"/>
+  </g>
+  <path d="M-10 100 Q60 80 120 105 T210 95" stroke="#7f1d1d" stroke-width="22" fill="none" stroke-linecap="round"/>
+  <path d="M-10 100 Q60 80 120 105 T210 95" stroke="#dc2626" stroke-width="16" fill="none" stroke-linecap="round"/>
+  <g fill="#f87171">
+    <ellipse cx="20" cy="96" rx="7" ry="4"/><ellipse cx="60" cy="92" rx="7" ry="4"/>
+    <ellipse cx="100" cy="100" rx="7" ry="4"/><ellipse cx="140" cy="98" rx="7" ry="4"/>
+    <ellipse cx="175" cy="94" rx="7" ry="4"/>
+  </g>
+  <g transform="translate(40,80)"><use href="#virus3"/></g>
+  <g transform="translate(110,78) scale(0.8)"><use href="#virus3"/></g>
+  <g transform="translate(170,85) scale(0.7)"><use href="#virus3"/></g>
+  <g transform="translate(20,125) scale(0.75)"><use href="#virus3"/></g>
+  <g transform="translate(145,120) scale(0.85)"><use href="#virus3"/></g>
+  <path d="M178 70 Q190 85 175 100" fill="none" stroke="#3b82f6" stroke-width="4" stroke-linecap="round"/>
+  <path d="M175 100 L170 92 L182 94 Z" fill="#3b82f6"/>
+</svg>`;
+
+/* =========================================================
+   题目数据
+   ========================================================= */
+const ROUNDS = [
+  {
+    lineLabel: '第一道防线：', funcLabel: '功能：',
+    lineAnswer: ['皮肤', '黏膜', '呼吸道的纤毛'],
+    funcAnswer: ['阻挡、黏附、清扫病原体，部分分泌物可杀菌'],
+    svg: SVG1
+  },
+  {
+    lineLabel: '第二道防线：', funcLabel: '功能：',
+    lineAnswer: ['白细胞', '吞噬细胞', '溶菌酶'],
+    funcAnswer: ['溶解、吞噬和消灭病原体'],
+    svg: SVG2
+  },
+  {
+    lineLabel: '第三道防线：', funcLabel: '功能：',
+    lineAnswer: ['胸腺', '淋巴结', '脾脏', '扁桃体', '淋巴细胞', '记忆细胞'],
+    funcAnswer: ['产生抗体，消除抗原'],
+    svg: SVG3
+  }
+];
+const WORDS = ROUNDS.flatMap(r => [...r.lineAnswer, ...r.funcAnswer]);
+
+/* =========================================================
+   状态
+   ========================================================= */
+let gameStarted = false, raceStart = 0, tickTimer = null, cdTimer = null, announced = false, poolOrder = [];
+const P = { A: { done: false, time: 0 }, B: { done: false, time: 0 } };
+const boards = [document.getElementById('boardA'), document.getElementById('boardB')];
+const msg = document.getElementById('msg');
+
+/* =========================================================
+   工具函数
+   ========================================================= */
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+/* 给 SVG 内 id 加前缀，避免左右两侧 id 冲突 */
+function scopeSvg(svg, prefix) {
+  return svg
+    .replace(/id="([^"]+)"/g, `id="${prefix}-$1"`)
+    .replace(/url\(#([^)]+)\)/g, `url(#${prefix}-$1)`)
+    .replace(/href="#([^"]+)"/g, `href="#${prefix}-$1"`);
+}
+
+/* 构建一个选手面板 */
+function buildBoard(p, order) {
+  const board = document.getElementById('board' + p);
+  const pool = board.querySelector('.pool');
+  const qs = board.querySelector('.questions');
+
+  order.forEach(w => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'word'; b.dataset.word = w; b.textContent = w;
+    pool.appendChild(b);
+  });
+
+  ROUNDS.forEach((r, i) => {
+    const q = document.createElement('div');
+    q.className = 'q';
+    q.innerHTML = `
+      <div class="pic">${scopeSvg(r.svg, p + '-' + i)}</div>
+      <div class="slots">
+        <div class="slot-row">
+          <span class="label">${r.lineLabel}</span>
+          <div class="slot" data-round="${i}" data-type="line"></div>
+        </div>
+        <div class="slot-row">
+          <span class="label">${r.funcLabel}</span>
+          <div class="slot" data-round="${i}" data-type="func"></div>
+        </div>
+      </div>`;
+    qs.appendChild(q);
+  });
+}
+
+/* =========================================================
+   卡片点击：选词 / 放入 / 取出
+   ========================================================= */
+document.addEventListener('click', (e) => {
+  const board = e.target.closest('.board');
+  if (!board) return;
+  const p = board.dataset.player;
+  if (!gameStarted || P[p].done || board.classList.contains('waiting')) return;
+
+  const wordBtn = e.target.closest('.word');
+  if (wordBtn) {
+    const wasSelected = wordBtn.classList.contains('selected');
+    board.querySelectorAll('.word.selected').forEach(x => x.classList.remove('selected'));
+    if (!wasSelected) wordBtn.classList.add('selected');
+    return;
+  }
+
+  const slot = e.target.closest('.slot');
+  if (slot) {
+    const chip = e.target.closest('.chip');
+    if (chip) {
+      const back = document.createElement('button');
+      back.type = 'button'; back.className = 'word'; back.dataset.word = chip.dataset.word; back.textContent = chip.dataset.word;
+      board.querySelector('.pool').appendChild(back);
+      chip.remove();
+      return;
+    }
+    const sel = board.querySelector('.word.selected');
+    if (!sel) return;
+    const c = document.createElement('span');
+    c.className = 'chip'; c.dataset.word = sel.dataset.word; c.textContent = sel.dataset.word;
+    slot.appendChild(c);
+    sel.remove();
+    return;
+  }
+
+  board.querySelectorAll('.word.selected').forEach(x => x.classList.remove('selected'));
+});
+
+/* =========================================================
+   提交与判分（两侧独立）
+   ========================================================= */
+document.querySelectorAll('.submit').forEach(btn => {
+  btn.addEventListener('click', () => submitAnswer(btn.closest('.board').dataset.player));
+});
+
+function submitAnswer(p) {
+  if (!gameStarted || P[p].done) return;
+  const board = document.getElementById('board' + p);
+  if (board.classList.contains('waiting')) return;
+
+  const res = board.querySelector('.result');
+  let allOk = true;
+
+  board.querySelectorAll('.slot').forEach(slot => {
+    const ri = +slot.dataset.round;
+    const ans = slot.dataset.type === 'line' ? ROUNDS[ri].lineAnswer : ROUNDS[ri].funcAnswer;
+    const got = [...slot.querySelectorAll('.chip')].map(c => c.dataset.word);
+    const ok = got.length === ans.length && ans.every(w => got.includes(w));
+    slot.classList.toggle('ok', ok);
+    slot.classList.toggle('bad', !ok);
+    if (!ok) allOk = false;
+  });
+
+  if (allOk) {
+    P[p].done = true;
+    P[p].time = (performance.now() - raceStart) / 1000;
+    const tEl = board.querySelector('.timer');
+    tEl.textContent = P[p].time.toFixed(1) + 's';
+    tEl.classList.add('stopped');
+    board.querySelector('.submit').disabled = true;
+    res.textContent = `✅ 全部正确！用时 ${P[p].time.toFixed(1)}s`;
+    res.style.color = '#16a34a';
+    if (P.A.done && P.B.done) announceWinner();
+  } else {
+    res.textContent = '❌ 有错误，请修改后重新提交';
+    res.style.color = '#dc2626';
+    setTimeout(() => {
+      board.querySelectorAll('.slot').forEach(s => s.classList.remove('ok', 'bad'));
+      if (res.textContent.indexOf('❌') === 0) res.textContent = '';
+    }, 1800);
+  }
+}
+
+/* =========================================================
+   计时与胜负
+   ========================================================= */
+function updateTimers() {
+  if (!gameStarted) return;
+  const now = performance.now();
+  ['A', 'B'].forEach(p => {
+    if (P[p].done) return;
+    P[p].time = (now - raceStart) / 1000;
+    document.querySelector('#board' + p + ' .timer').textContent = P[p].time.toFixed(1) + 's';
+  });
+  if (P.A.done && P.B.done) announceWinner();
+}
+
+function announceWinner() {
+  if (announced) return;
+  announced = true;
+  clearInterval(tickTimer); tickTimer = null; gameStarted = false;
+
+  const a = P.A.time, b = P.B.time;
+  const boardA = document.getElementById('boardA'), boardB = document.getElementById('boardB');
+
+  if (Math.abs(a - b) < 0.05) {
+    msg.textContent = `🤝 平局！双方均为 ${a.toFixed(1)}s`;
+    boardA.classList.add('winner'); boardB.classList.add('winner');
+  } else if (a < b) {
+    msg.textContent = `🏆 选手 A 获胜！${a.toFixed(1)}s  vs  ${b.toFixed(1)}s`;
+    boardA.classList.add('winner');
+  } else {
+    msg.textContent = `🏆 选手 B 获胜！${b.toFixed(1)}s  vs  ${a.toFixed(1)}s`;
+    boardB.classList.add('winner');
+  }
+}
+
+/* =========================================================
+   重置与开始
+   ========================================================= */
+function resetAll() {
+  clearInterval(tickTimer); clearInterval(cdTimer);
+  gameStarted = false; announced = false;
+  P.A = { done: false, time: 0 }; P.B = { done: false, time: 0 };
+  poolOrder = shuffle([...WORDS]);
+
+  ['A', 'B'].forEach(p => {
+    const board = document.getElementById('board' + p);
+    board.classList.remove('winner', 'waiting');
+    board.querySelector('.pool').innerHTML = '';
+    board.querySelector('.questions').innerHTML = '';
+    const t = board.querySelector('.timer');
+    t.textContent = '0.0s'; t.classList.remove('stopped');
+    const r = board.querySelector('.result');
+    r.textContent = ''; r.style.color = '';
+    board.querySelector('.submit').disabled = false;
+    buildBoard(p, poolOrder);
+  });
+  msg.textContent = '点击「开始比赛」';
+}
+
+document.getElementById('startBtn').addEventListener('click', () => {
+  if (gameStarted) return;
+  resetAll();
+  boards.forEach(b => b.classList.add('waiting'));
+  let n = 3;
+  msg.textContent = '准备… 3';
+  cdTimer = setInterval(() => {
+    n--;
+    if (n > 0) {
+      msg.textContent = '准备… ' + n;
+    } else {
+      clearInterval(cdTimer); cdTimer = null;
+      gameStarted = true;
+      msg.textContent = '⏱ 比赛进行中…';
+      boards.forEach(b => b.classList.remove('waiting'));
+      raceStart = performance.now();
+      P.A.time = 0; P.B.time = 0;
+      tickTimer = setInterval(updateTimers, 80);
+      updateTimers();
+    }
+  }, 800);
+});
+
+document.getElementById('resetBtn').addEventListener('click', resetAll);
+resetAll();
+</script>
+</body>
+</html>
